@@ -5,6 +5,9 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { supabase } from '../lib/supabase';
+import AddExamModal from '../components/books/AddExamModal';
+import AddSubjectModal from '../components/books/AddSubjectModal';
+import { PlusCircleIcon } from '@heroicons/react/24/outline';
 
 // Define types for our data
 interface Exam {
@@ -53,12 +56,18 @@ export default function ChaptersPage() {
     description: '',
     order: '',
     subject_id: '',
+    exam_id: '', // Added exam_id for form handling
   });
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
+  // Modal states for adding exam and subject
+  const [isAddExamModalOpen, setIsAddExamModalOpen] = useState(false);
+  const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
+  const [selectedExamForSubject, setSelectedExamForSubject] = useState<{id: string, name: string} | null>(null);
+  
   // Auth check and data loading
   useEffect(() => {
     const checkAuth = async () => {
@@ -71,10 +80,10 @@ export default function ChaptersPage() {
       // Check if storage bucket exists, create it if not
       try {
         const { data: buckets } = await supabase.storage.listBuckets();
-        const bucketExists = buckets?.some(bucket => bucket.name === 'chapter_pdfs');
+        const bucketExists = buckets?.some(bucket => bucket.name === 'chapters');
         
         if (!bucketExists) {
-          await supabase.storage.createBucket('chapter_pdfs', {
+          await supabase.storage.createBucket('chapters', {
             public: true,
             fileSizeLimit: 10485760 // 10MB
           });
@@ -165,6 +174,17 @@ export default function ChaptersPage() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewChapter({ ...newChapter, [name]: value });
+    
+    // When exam changes, reset subject
+    if (name === 'exam_id') {
+      setNewChapter(prev => ({ ...prev, subject_id: '', [name]: value }));
+    }
+  };
+  
+  // Get filtered subjects for the form based on selected exam
+  const getFormSubjects = () => {
+    if (!newChapter.exam_id) return [];
+    return subjects.filter(subject => subject.exam_id === newChapter.exam_id);
   };
   
   // Handle file input
@@ -176,6 +196,32 @@ export default function ChaptersPage() {
       setError('Please upload a PDF file');
       setPdfFile(null);
       e.target.value = null;
+    }
+  };
+
+  // Handle new exam added
+  const handleExamAdded = (exam) => {
+    setExams(prev => [...prev, exam]);
+    setNewChapter(prev => ({ ...prev, exam_id: exam.id }));
+  };
+
+  // Handle new subject added
+  const handleSubjectAdded = (subject) => {
+    setSubjects(prev => [...prev, subject]);
+    setNewChapter(prev => ({ ...prev, subject_id: subject.id }));
+  };
+
+  // Open add subject modal
+  const openAddSubjectModal = () => {
+    const selectedExam = exams.find(e => e.id === newChapter.exam_id);
+    if (selectedExam) {
+      setSelectedExamForSubject({
+        id: selectedExam.id,
+        name: selectedExam.name
+      });
+      setIsAddSubjectModalOpen(true);
+    } else {
+      setError('Please select an exam first before adding a subject');
     }
   };
   
@@ -210,14 +256,14 @@ export default function ChaptersPage() {
       if (pdfFile && chapterData) {
         const fileName = `${Date.now()}_${pdfFile.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('chapter_pdfs')
+          .from('chapters') // Updated bucket name
           .upload(fileName, pdfFile);
         
         if (uploadError) throw uploadError;
         
         // Get public URL for the PDF
         const { data: urlData } = supabase.storage
-          .from('chapter_pdfs')
+          .from('chapters') // Updated bucket name
           .getPublicUrl(fileName);
           
         // Update chapter with PDF URL
@@ -231,7 +277,7 @@ export default function ChaptersPage() {
       
       // Reset form and refresh data
       setSuccess('Chapter added successfully!');
-      setNewChapter({ name: '', description: '', order: '', subject_id: '' });
+      setNewChapter({ name: '', description: '', order: '', subject_id: '', exam_id: '' });
       setPdfFile(null);
       setIsAddingChapter(false);
       
@@ -332,14 +378,14 @@ export default function ChaptersPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                Description (Optional)
               </label>
               <textarea
                 name="description"
                 value={newChapter.description}
                 onChange={handleInputChange}
-                rows={3}
                 className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                rows={3}
                 placeholder="Enter chapter description"
               ></textarea>
             </div>
@@ -356,22 +402,69 @@ export default function ChaptersPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Exam (Required)
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    name="exam_id"
+                    value={newChapter.exam_id}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  >
+                    <option value="">Select an Exam</option>
+                    {exams.map((exam) => (
+                      <option key={exam.id} value={exam.id}>
+                        {exam.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddExamModalOpen(true)}
+                    className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700"
+                    title="Add New Exam"
+                  >
+                    <PlusCircleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Subject (Required)
                 </label>
-                <select
-                  name="subject_id"
-                  value={newChapter.subject_id}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                >
-                  <option value="">Select a Subject</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name} ({subject.exams.name})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    name="subject_id"
+                    value={newChapter.subject_id}
+                    onChange={handleInputChange}
+                    required
+                    disabled={!newChapter.exam_id}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    <option value="">Select a Subject</option>
+                    {getFormSubjects().map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={openAddSubjectModal}
+                    className={`flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700 ${!newChapter.exam_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Add New Subject"
+                    disabled={!newChapter.exam_id}
+                  >
+                    <PlusCircleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                {!newChapter.exam_id && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Select an exam first
+                  </p>
+                )}
               </div>
             </div>
             
@@ -409,22 +502,20 @@ export default function ChaptersPage() {
           <p className="text-gray-500">No chapters found. Add your first chapter!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredChapters.map((chapter) => (
             <Card key={chapter.id} className="hover:shadow-md transition-shadow">
-              <div className="flex flex-col md:flex-row justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    {chapter.name}
-                    {chapter.order !== null && (
-                      <span className="ml-2 text-sm text-gray-500">#{chapter.order}</span>
-                    )}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-800">{chapter.name}</h3>
+                  {chapter.description && (
+                    <p className="text-sm text-gray-600 mt-1">{chapter.description}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
                     Subject: {chapter.subjects.name} | Exam: {chapter.subjects.exams.name}
                   </p>
-                  {chapter.description && (
-                    <p className="mt-2 text-gray-600">{chapter.description}</p>
+                  {chapter.order && (
+                    <p className="text-xs text-gray-500">Order: {chapter.order}</p>
                   )}
                 </div>
                 <div className="mt-4 md:mt-0 flex items-center space-x-2">
@@ -452,6 +543,24 @@ export default function ChaptersPage() {
             </Card>
           ))}
         </div>
+      )}
+      
+      {/* Add Exam Modal */}
+      <AddExamModal
+        isOpen={isAddExamModalOpen}
+        onClose={() => setIsAddExamModalOpen(false)}
+        onExamAdded={handleExamAdded}
+      />
+      
+      {/* Add Subject Modal */}
+      {selectedExamForSubject && (
+        <AddSubjectModal
+          isOpen={isAddSubjectModalOpen}
+          onClose={() => setIsAddSubjectModalOpen(false)}
+          examId={selectedExamForSubject.id}
+          examName={selectedExamForSubject.name}
+          onSubjectAdded={handleSubjectAdded}
+        />
       )}
     </Layout>
   );
