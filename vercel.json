@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "regions": ["all"],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "SUPABASE_ANON_KEY"
+  }
+} 
