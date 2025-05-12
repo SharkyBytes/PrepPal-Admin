@@ -113,12 +113,14 @@ export default function Dashboard() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Recent Exams">
-          <p className="text-gray-500">Loading recent exams...</p>
+        <Card>
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Recent Exams</h2>
+          <p className="text-gray-500 dark:text-gray-400">Loading recent exams...</p>
         </Card>
         
-        <Card title="Recent Subjects">
-          <p className="text-gray-500">Loading recent subjects...</p>
+        <Card>
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Recent Subjects</h2>
+          <p className="text-gray-500 dark:text-gray-400">Loading recent subjects...</p>
         </Card>
       </div>
     </Layout>
