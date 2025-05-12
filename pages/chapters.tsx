@@ -204,23 +204,6 @@ export default function ChaptersPage() {
     setIsDeleting(true);
     
     try {
-      // Print the files in the bucket to debug
-      try {
-        console.log('Listing files in chapters bucket:');
-        const { data: listData, error: listError } = await supabase
-          .storage
-          .from('chapters')
-          .list();
-        
-        if (listError) {
-          console.error('Error listing bucket contents:', listError);
-        } else {
-          console.log('Bucket files:', listData);
-        }
-      } catch (listError) {
-        console.error('Error checking bucket:', listError);
-      }
-      
       const chapter = chapters.find(c => c.id === chapterId);
       
       // Delete PDF file if it exists
@@ -230,100 +213,25 @@ export default function ChaptersPage() {
           
           // Extract just the filename from the URL
           const url = new URL(chapter.pdf_url);
-          console.log(`Parsed URL: ${url.toString()}`);
-          console.log(`Pathname: ${url.pathname}`);
-          
-          // Method 1: Get the last segment of the URL path
           const pathname = url.pathname;
           const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
-          console.log(`Method 1 extracted filename: ${filename}`);
           
-          // Method 2: Try extracting the full path after storage/v1/object/public/
-          let fullPath: string | null = null;
-          const pathParts = url.pathname.split('/storage/v1/object/public/');
-          if (pathParts.length > 1) {
-            fullPath = pathParts[1];
-            console.log(`Method 2 extracted path: ${fullPath}`);
-            
-            // Method 2 might include the bucket name, try to remove it
-            if (fullPath && fullPath.startsWith('chapters/')) {
-              fullPath = fullPath.substring('chapters/'.length);
-              console.log(`Method 2 corrected path: ${fullPath}`);
-            }
-          }
-          
-          let deleteSuccess = false;
-          
-          // Try Method 1 first
           if (filename) {
             try {
-              console.log(`Attempting to remove file using Method 1: ${filename}`);
-              
-              const { data, error: deleteError } = await supabase.storage
+              const { error: deleteError } = await supabase.storage
                 .from('chapters')
                 .remove([filename]);
                 
-              console.log(`Method 1 - Remove response:`, data);
-              
               if (deleteError) {
-                console.error('Method 1 - Error deleting PDF file:', deleteError);
-              } else {
-                console.log(`Method 1 - Successfully deleted PDF file: ${filename}`);
-                deleteSuccess = true;
+                console.error('Error deleting PDF file:', deleteError);
               }
             } catch (storageError) {
-              console.error('Method 1 - Storage deletion error:', storageError);
+              console.error('Storage deletion error:', storageError);
             }
-          }
-          
-          // If Method 1 fails, try Method 2
-          if (!deleteSuccess && fullPath) {
-            try {
-              console.log(`Attempting to remove file using Method 2: ${fullPath}`);
-              
-              const { data, error: deleteError } = await supabase.storage
-                .from('chapters')
-                .remove([fullPath]);
-                
-              console.log(`Method 2 - Remove response:`, data);
-              
-              if (deleteError) {
-                console.error('Method 2 - Error deleting PDF file:', deleteError);
-                
-                // Try SQL-style filename (just the exact filename without path)
-                console.log(`Attempting direct filename query from URL: ${chapter.pdf_url}`);
-                const directFilename = chapter.pdf_url.split('/').pop();
-                if (directFilename) {
-                  console.log(`Attempting with direct filename: ${directFilename}`);
-                  
-                  const { data, error: directError } = await supabase.storage
-                    .from('chapters')
-                    .remove([directFilename]);
-                    
-                  if (directError) {
-                    console.error('Direct filename - Error deleting PDF file:', directError);
-                  } else {
-                    console.log(`Direct filename - Successfully deleted: ${directFilename}`);
-                    deleteSuccess = true;
-                  }
-                }
-              } else {
-                console.log(`Method 2 - Successfully deleted PDF file: ${fullPath}`);
-                deleteSuccess = true;
-              }
-            } catch (storageError) {
-              console.error('Method 2 - Storage deletion error:', storageError);
-            }
-          }
-          
-          if (!deleteSuccess) {
-            console.warn('Failed to delete PDF file with all methods');
           }
         } catch (urlError) {
           console.error('Error parsing PDF URL:', urlError, chapter.pdf_url);
         }
-      } else {
-        console.log('No PDF URL found for this chapter');
       }
       
       // Delete the chapter record
@@ -398,8 +306,6 @@ export default function ChaptersPage() {
           const pathname = url.pathname;
           const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
           
-          console.log(`Attempting to delete previous PDF file: ${filename}`);
-          
           if (filename) {
             try {
               const { error: deleteError } = await supabase.storage
@@ -408,8 +314,6 @@ export default function ChaptersPage() {
                 
               if (deleteError) {
                 console.error('Error deleting previous PDF file:', deleteError);
-              } else {
-                console.log(`Successfully deleted previous PDF file: ${filename} from chapters bucket`);
               }
             } catch (storageError) {
               console.error('Storage deletion error:', storageError);
@@ -420,10 +324,6 @@ export default function ChaptersPage() {
         // Upload the new PDF with sanitized filename
         const sanitizedName = sanitizeFilename(pdfFile.name);
         const fileName = `${Date.now()}_${sanitizedName}`;
-        
-        console.log(`Original filename: ${pdfFile.name}`);
-        console.log(`Sanitized filename: ${sanitizedName}`);
-        console.log(`Final filename for upload: ${fileName}`);
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('chapters')
@@ -569,10 +469,6 @@ export default function ChaptersPage() {
         const sanitizedName = sanitizeFilename(pdfFile.name);
         const fileName = `${Date.now()}_${sanitizedName}`;
         
-        console.log(`Original filename: ${pdfFile.name}`);
-        console.log(`Sanitized filename: ${sanitizedName}`);
-        console.log(`Final filename for upload: ${fileName}`);
-        
         const { error: uploadError } = await supabase.storage
           .from('chapters')
           .upload(fileName, pdfFile);
@@ -617,9 +513,9 @@ export default function ChaptersPage() {
       </Head>
       
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Chapters</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Chapters</h1>
         {!isAddingChapter && (
-          <Button onClick={() => setIsAddingChapter(true)}>
+          <Button onClick={() => setIsAddingChapter(true)} data-add-button="true">
             Add New Chapter
           </Button>
         )}
@@ -641,11 +537,12 @@ export default function ChaptersPage() {
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Filter by Exam
             </label>
             <select
-              className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
               value={selectedExam}
               onChange={(e) => {
                 setSelectedExam(e.target.value);
@@ -662,11 +559,13 @@ export default function ChaptersPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Filter by Subject
             </label>
             <select
-              className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200
+                disabled:bg-gray-100 disabled:dark:bg-gray-900"
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
               disabled={!selectedExam}
@@ -720,14 +619,15 @@ export default function ChaptersPage() {
             />
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description (Optional)
               </label>
               <textarea
                 name="description"
                 value={newChapter.description}
                 onChange={handleInputChange}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                  focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
                 rows={3}
                 placeholder="Enter chapter description"
               ></textarea>
@@ -744,7 +644,7 @@ export default function ChaptersPage() {
               />
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Exam (Required)
                 </label>
                 <div className="flex gap-2">
@@ -753,7 +653,8 @@ export default function ChaptersPage() {
                     value={newChapter.exam_id}
                     onChange={handleInputChange}
                     required
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                      focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
                   >
                     <option value="">Select an Exam</option>
                     {exams.map((exam) => (
@@ -765,7 +666,7 @@ export default function ChaptersPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddExamModalOpen(true)}
-                    className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700"
+                    className="flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md p-2 text-gray-700 dark:text-gray-300"
                     title="Add New Exam"
                   >
                     <PlusCircleIcon className="h-5 w-5" />
@@ -774,7 +675,7 @@ export default function ChaptersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Subject (Required)
                 </label>
                 <div className="flex gap-2">
@@ -784,7 +685,11 @@ export default function ChaptersPage() {
                     onChange={handleInputChange}
                     required
                     disabled={!newChapter.exam_id}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                      focus:border-primary-500 focus:ring-primary-500 
+                      disabled:bg-gray-100 disabled:text-gray-500 
+                      dark:bg-gray-800 dark:text-gray-200
+                      dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                   >
                     <option value="">Select a Subject</option>
                     {getFormSubjects().map((subject) => (
@@ -796,7 +701,7 @@ export default function ChaptersPage() {
                   <button
                     type="button"
                     onClick={openAddSubjectModal}
-                    className={`flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700 ${!newChapter.exam_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md p-2 text-gray-700 dark:text-gray-300 ${!newChapter.exam_id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Add New Subject"
                     disabled={!newChapter.exam_id}
                   >
@@ -804,7 +709,7 @@ export default function ChaptersPage() {
                   </button>
                 </div>
                 {!newChapter.exam_id && (
-                  <p className="mt-1 text-xs text-amber-600">
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                     Select an exam first
                   </p>
                 )}
@@ -812,16 +717,16 @@ export default function ChaptersPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Chapter PDF (Optional)
               </label>
               <input
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className="w-full border border-gray-300 rounded-md py-2 px-3"
+                className="w-full border border-gray-300 dark:border-gray-700 rounded-md py-2 px-3 dark:bg-gray-800 dark:text-gray-200"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Upload a PDF file for this chapter content
               </p>
             </div>
@@ -850,15 +755,15 @@ export default function ChaptersPage() {
             <Card key={chapter.id} className="hover:shadow-md transition-shadow">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-800">{chapter.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{chapter.name}</h3>
                   {chapter.description && (
-                    <p className="text-sm text-gray-600 mt-1">{chapter.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{chapter.description}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Subject: {chapter.subjects.name} | Exam: {chapter.subjects.exams.name}
                   </p>
                   {chapter.order && (
-                    <p className="text-xs text-gray-500">Order: {chapter.order}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Order: {chapter.order}</p>
                   )}
                 </div>
                 <div className="mt-4 md:mt-0 flex items-center space-x-2">
@@ -867,13 +772,13 @@ export default function ChaptersPage() {
                       href={chapter.pdf_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm bg-blue-50 text-blue-700 py-1 px-3 rounded-full hover:bg-blue-100"
+                      className="text-sm bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 py-1 px-3 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50"
                     >
                       View PDF
                     </a>
                   )}
                   <button
-                    className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded-full hover:bg-gray-200 flex items-center"
+                    className="text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 py-1 px-3 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center"
                     onClick={() => handleEditChapter(chapter)}
                     title="Edit chapter"
                   >
@@ -881,7 +786,7 @@ export default function ChaptersPage() {
                     Edit
                   </button>
                   <button
-                    className="text-sm bg-red-50 text-red-700 py-1 px-3 rounded-full hover:bg-red-100 flex items-center"
+                    className="text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 py-1 px-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
                     onClick={() => handleDeleteChapter(chapter.id)}
                     disabled={isDeleting}
                     title="Delete chapter"

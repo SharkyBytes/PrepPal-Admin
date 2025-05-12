@@ -1,7 +1,8 @@
-import { FC, useState } from 'react';
+import { FC, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { signOut } from '../../lib/supabase';
+import { useTheme } from '../../lib/themeContext';
 
 // Icons
 import {
@@ -9,8 +10,13 @@ import {
   BookOpenIcon,
   DocumentTextIcon,
   HomeIcon,
-  ChartPieIcon,
+  BookmarkIcon,
   ArrowLeftOnRectangleIcon,
+  Bars3Icon,
+  XMarkIcon,
+  SunIcon,
+  MoonIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 
 type NavItemProps = {
@@ -18,21 +24,22 @@ type NavItemProps = {
   icon: JSX.Element;
   text: string;
   isActive: boolean;
-  isMobile?: boolean;
+  onClick?: () => void;
 };
 
-const NavItem: FC<NavItemProps> = ({ href, icon, text, isActive, isMobile = false }) => {
+const NavItem: FC<NavItemProps> = ({ href, icon, text, isActive, onClick }) => {
   return (
     <Link
       href={href}
-      className={`flex items-center px-4 py-3 mb-2 rounded-md transition-colors ${
+      className={`flex items-center px-4 py-3 mb-2 rounded-xl transition-all duration-200 ${
         isActive
-          ? 'bg-primary-100 text-primary-800'
-          : 'hover:bg-gray-100 text-gray-700'
+          ? 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 font-medium'
+          : 'hover:bg-gray-100 text-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/60'
       }`}
+      onClick={onClick}
     >
       <span className="w-6 h-6 mr-3">{icon}</span>
-      <span className={`${isMobile ? 'block' : 'hidden md:block'}`}>{text}</span>
+      <span>{text}</span>
     </Link>
   );
 };
@@ -40,6 +47,27 @@ const NavItem: FC<NavItemProps> = ({ href, icon, text, isActive, isMobile = fals
 const Sidebar: FC = () => {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isDarkMode, toggleTheme } = useTheme();
+  
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [router.pathname]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const sidebar = document.getElementById('mobile-sidebar');
+      if (sidebar && !sidebar.contains(event.target) && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -49,40 +77,64 @@ const Sidebar: FC = () => {
   const navItems = [
     {
       href: '/',
-      icon: <HomeIcon />,
+      icon: <HomeIcon className="stroke-2" />,
       text: 'Dashboard',
     },
     {
       href: '/exams',
-      icon: <AcademicCapIcon />,
+      icon: <AcademicCapIcon className="stroke-2" />,
       text: 'Exams',
     },
     {
       href: '/subjects',
-      icon: <BookOpenIcon />,
+      icon: <BookOpenIcon className="stroke-2" />,
       text: 'Subjects',
     },
     {
       href: '/chapters',
-      icon: <DocumentTextIcon />,
+      icon: <DocumentTextIcon className="stroke-2" />,
       text: 'Chapters',
     },
     {
       href: '/books',
-      icon: <ChartPieIcon />,
+      icon: <BookmarkIcon className="stroke-2" />,
       text: 'Books',
     },
   ];
 
+  // Get current page title
+  const getCurrentPageTitle = () => {
+    const currentItem = navItems.find(item => item.href === router.pathname);
+    return currentItem ? currentItem.text : 'Dashboard';
+  };
+
+  // Handle add button click based on current path
+  const handleAddClick = () => {
+    // Each page has its own add functionality
+    // Triggering the buttons in the respective pages
+    const addButtonElement = document.querySelector('[data-add-button="true"]') as HTMLButtonElement;
+    if (addButtonElement) {
+      addButtonElement.click();
+    }
+  };
+
+  // Determine if we should show Add button (not for dashboard)
+  const shouldShowAddButton = router.pathname !== '/';
+
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col h-screen w-64 bg-white border-r border-gray-200 p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-primary-600">PrepPal Admin</h1>
+      <div className="hidden md:flex flex-col h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 transition-colors duration-200 shadow-sm">
+        <div className="mb-8">
+          <div className="flex items-center space-x-2 py-2">
+            <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-primary-600 to-secondary-500 flex items-center justify-center text-white font-bold text-lg">
+              P
+            </div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 text-transparent bg-clip-text">PrepPal Admin</h1>
+          </div>
         </div>
 
-        <nav className="flex-1">
+        <nav className="flex-1 space-y-1">
           {navItems.map((item) => (
             <NavItem
               key={item.href}
@@ -94,90 +146,123 @@ const Sidebar: FC = () => {
           ))}
         </nav>
 
-        <button
-          onClick={handleSignOut}
-          className="flex items-center px-4 py-3 mt-auto mb-2 text-gray-700 hover:bg-gray-100 rounded-md"
-        >
-          <ArrowLeftOnRectangleIcon className="w-6 h-6 mr-3" />
-          <span>Sign Out</span>
-        </button>
+        <div className="pt-4 mt-auto border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-xl transition-all duration-200"
+          >
+            {isDarkMode ? (
+              <>
+                <SunIcon className="w-6 h-6 mr-3 stroke-2" />
+                <span>Light Mode</span>
+              </>
+            ) : (
+              <>
+                <MoonIcon className="w-6 h-6 mr-3 stroke-2" />
+                <span>Dark Mode</span>
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={handleSignOut}
+            className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-xl transition-all duration-200"
+          >
+            <ArrowLeftOnRectangleIcon className="w-6 h-6 mr-3 stroke-2" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Sidebar Toggle */}
-      <div className="md:hidden">
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 m-2 text-gray-500 rounded-md hover:bg-gray-100"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
+      {/* Mobile Header and Menu */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {mobileMenuOpen ? (
+                <XMarkIcon className="w-6 h-6 stroke-2" />
+              ) : (
+                <Bars3Icon className="w-6 h-6 stroke-2" />
+              )}
+            </button>
+            
+            <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-primary-600 to-secondary-500 flex items-center justify-center text-white font-bold text-lg">
+              P
+            </div>
+            <h2 className="text-base font-bold text-gray-800 dark:text-white">{getCurrentPageTitle()}</h2>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {shouldShowAddButton && (
+              <button
+                onClick={handleAddClick}
+                className="p-2 text-white bg-primary-600 rounded-full hover:bg-primary-700 dark:bg-primary-600 dark:hover:bg-primary-700"
+                aria-label="Add new item"
+              >
+                <PlusIcon className="w-5 h-5 stroke-2" />
+              </button>
+            )}
+            
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {isDarkMode ? (
+                <SunIcon className="w-6 h-6 stroke-2" />
+              ) : (
+                <MoonIcon className="w-6 h-6 stroke-2" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="fixed inset-0 z-40 flex">
-            <div
-              className="fixed inset-0 bg-gray-600 bg-opacity-75"
-              onClick={() => setMobileMenuOpen(false)}
-            ></div>
-            <div className="relative flex flex-col w-full max-w-xs bg-white">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h1 className="text-xl font-bold text-primary-600">PrepPal Admin</h1>
-                <button
+      {/* Mobile Menu Drawer */}
+      <div
+        className={`fixed inset-0 z-20 md:hidden transition-opacity duration-300 ${
+          mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)}></div>
+        
+        <div
+          id="mobile-sidebar"
+          className={`absolute top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-xl transition-transform duration-300 ease-in-out ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="p-4 mt-12">
+            <nav className="flex flex-col space-y-1">
+              {navItems.map((item) => (
+                <NavItem
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  text={item.text}
+                  isActive={router.pathname === item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 text-gray-500 rounded-md hover:bg-gray-100"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <nav className="flex-1 p-4">
-                {navItems.map((item) => (
-                  <NavItem
-                    key={item.href}
-                    href={item.href}
-                    icon={item.icon}
-                    text={item.text}
-                    isActive={router.pathname === item.href}
-                    isMobile={true}
-                  />
-                ))}
+                />
+              ))}
+              
+              <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center w-full px-4 py-3 mt-4 text-gray-700 hover:bg-gray-100 rounded-md"
+                  className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-xl transition-all duration-200"
                 >
-                  <ArrowLeftOnRectangleIcon className="w-6 h-6 mr-3" />
+                  <ArrowLeftOnRectangleIcon className="w-6 h-6 mr-3 stroke-2" />
                   <span>Sign Out</span>
                 </button>
-              </nav>
-            </div>
+              </div>
+            </nav>
           </div>
-        )}
+        </div>
       </div>
+      
+      {/* Mobile Content Padding */}
+      <div className="md:hidden h-16"></div>
     </>
   );
 };

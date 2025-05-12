@@ -1,91 +1,78 @@
-import { ButtonHTMLAttributes, FC, ReactNode } from 'react';
+import { FC, ReactNode, ButtonHTMLAttributes } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
-  fullWidth?: boolean;
   loading?: boolean;
+  fullWidth?: boolean;
+  iconLeft?: ReactNode;
+  iconRight?: ReactNode;
 }
 
 const Button: FC<ButtonProps> = ({
   children,
   variant = 'primary',
   size = 'md',
-  fullWidth = false,
   loading = false,
+  fullWidth = false,
+  iconLeft,
+  iconRight,
   className = '',
   disabled,
   ...props
 }) => {
-  const getVariantClasses = () => {
-    switch (variant) {
-      case 'primary':
-        return 'bg-primary-600 text-white hover:bg-primary-700';
-      case 'secondary':
-        return 'bg-secondary-600 text-white hover:bg-secondary-700';
-      case 'outline':
-        return 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
-      case 'danger':
-        return 'bg-red-600 text-white hover:bg-red-700';
-      default:
-        return 'bg-primary-600 text-white hover:bg-primary-700';
-    }
+  const baseStyles = 'inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-900';
+  
+  const variantStyles = {
+    primary: 'bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-600 dark:hover:bg-primary-700 shadow-sm',
+    secondary: 'bg-secondary-600 text-white hover:bg-secondary-700 dark:bg-secondary-600 dark:hover:bg-secondary-700 shadow-sm',
+    outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700',
+    ghost: 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
   };
-
-  const getSizeClasses = () => {
-    switch (size) {
-      case 'sm':
-        return 'text-sm px-3 py-1.5';
-      case 'md':
-        return 'px-4 py-2';
-      case 'lg':
-        return 'text-lg px-5 py-2.5';
-      default:
-        return 'px-4 py-2';
-    }
+  
+  const sizeStyles = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-4 py-2',
+    lg: 'px-6 py-3 text-lg',
   };
-
+  
+  const widthStyles = fullWidth ? 'w-full' : '';
+  
+  const disabledStyles = disabled || loading ? 'opacity-60 cursor-not-allowed' : '';
+  
   return (
     <button
-      className={`
-        font-medium rounded transition duration-200
-        ${getVariantClasses()}
-        ${getSizeClasses()}
-        ${fullWidth ? 'w-full' : ''}
-        ${loading || disabled ? 'opacity-70 cursor-not-allowed' : ''}
-        ${className}
-      `}
-      disabled={loading || disabled}
+      className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${widthStyles} ${disabledStyles} ${className}`}
+      disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <div className="flex items-center justify-center">
-          <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          {children}
-        </div>
-      ) : (
-        children
+      {loading && (
+        <svg
+          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
       )}
+      
+      {!loading && iconLeft && <span className="mr-2">{iconLeft}</span>}
+      <span>{children}</span>
+      {!loading && iconRight && <span className="ml-2">{iconRight}</span>}
     </button>
   );
 };

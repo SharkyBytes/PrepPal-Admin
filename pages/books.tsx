@@ -95,8 +95,6 @@ export default function BooksPage() {
         }
       } catch (error) {
         console.error('Error checking/creating storage bucket:', error);
-        // If bucket creation fails, try to continue anyway
-        // The bucket might already exist or need to be created manually
       }
 
       await fetchData();
@@ -271,8 +269,6 @@ export default function BooksPage() {
         const pathname = url.pathname;
         const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
         
-        console.log(`Attempting to delete PDF file: ${filename}`);
-        
         if (filename) {
           try {
             const { error: deleteError } = await supabase.storage
@@ -281,8 +277,6 @@ export default function BooksPage() {
             
             if (deleteError) {
               console.error('Error deleting PDF file:', deleteError);
-            } else {
-              console.log(`Successfully deleted PDF file: ${filename} from books bucket`);
             }
           } catch (storageError) {
             console.error('Storage deletion error:', storageError);
@@ -358,8 +352,6 @@ export default function BooksPage() {
           const pathname = url.pathname;
           const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
           
-          console.log(`Attempting to delete previous PDF file: ${filename}`);
-          
           if (filename) {
             try {
               const { error: deleteError } = await supabase.storage
@@ -368,8 +360,6 @@ export default function BooksPage() {
               
               if (deleteError) {
                 console.error('Error deleting previous PDF file:', deleteError);
-              } else {
-                console.log(`Successfully deleted previous PDF file: ${filename} from books bucket`);
               }
             } catch (storageError) {
               console.error('Storage deletion error:', storageError);
@@ -380,10 +370,6 @@ export default function BooksPage() {
         // Upload the new PDF with sanitized filename
         const sanitizedName = sanitizeFilename(pdfFile.name);
         const fileName = `${Date.now()}_${sanitizedName}`;
-        
-        console.log(`Original filename: ${pdfFile.name}`);
-        console.log(`Sanitized filename: ${sanitizedName}`);
-        console.log(`Final filename for upload: ${fileName}`);
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('books')
@@ -474,10 +460,6 @@ export default function BooksPage() {
         const sanitizedName = sanitizeFilename(pdfFile.name);
         const fileName = `${Date.now()}_${sanitizedName}`;
         
-        console.log(`Original filename: ${pdfFile.name}`);
-        console.log(`Sanitized filename: ${sanitizedName}`);
-        console.log(`Final filename for upload: ${fileName}`);
-        
         const { error: uploadError } = await supabase.storage
           .from('books')
           .upload(fileName, pdfFile);
@@ -522,9 +504,9 @@ export default function BooksPage() {
       </Head>
       
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Books</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Books</h1>
         {!isAddingBook && (
-          <Button onClick={() => setIsAddingBook(true)}>
+          <Button onClick={() => setIsAddingBook(true)} data-add-button="true">
             Add New Book
           </Button>
         )}
@@ -546,11 +528,12 @@ export default function BooksPage() {
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Filter by Exam
             </label>
             <select
-              className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
               value={selectedExam}
               onChange={(e) => {
                 setSelectedExam(e.target.value);
@@ -567,11 +550,13 @@ export default function BooksPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Filter by Subject
             </label>
             <select
-              className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200
+                disabled:bg-gray-100 disabled:dark:bg-gray-900"
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
               disabled={!selectedExam}
@@ -643,7 +628,7 @@ export default function BooksPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Exam (Required)
                 </label>
                 <div className="flex gap-2">
@@ -652,7 +637,8 @@ export default function BooksPage() {
                     value={newBook.exam_id}
                     onChange={handleInputChange}
                     required
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                      focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
                   >
                     <option value="">Select an Exam</option>
                     {exams.map((exam) => (
@@ -664,7 +650,7 @@ export default function BooksPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddExamModalOpen(true)}
-                    className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700"
+                    className="flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md p-2 text-gray-700 dark:text-gray-300"
                     title="Add New Exam"
                   >
                     <PlusCircleIcon className="h-5 w-5" />
@@ -673,7 +659,7 @@ export default function BooksPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Subject (Required)
                 </label>
                 <div className="flex gap-2">
@@ -683,7 +669,11 @@ export default function BooksPage() {
                     onChange={handleInputChange}
                     required
                     disabled={!newBook.exam_id}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                      focus:border-primary-500 focus:ring-primary-500 
+                      disabled:bg-gray-100 disabled:text-gray-500 
+                      dark:bg-gray-800 dark:text-gray-200
+                      dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                   >
                     <option value="">Select a Subject</option>
                     {getFormSubjects().map((subject) => (
@@ -695,7 +685,7 @@ export default function BooksPage() {
                   <button
                     type="button"
                     onClick={openAddSubjectModal}
-                    className={`flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-md p-2 text-gray-700 ${!newBook.exam_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md p-2 text-gray-700 dark:text-gray-300 ${!newBook.exam_id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Add New Subject"
                     disabled={!newBook.exam_id}
                   >
@@ -703,7 +693,7 @@ export default function BooksPage() {
                   </button>
                 </div>
                 {!newBook.exam_id && (
-                  <p className="mt-1 text-xs text-amber-600">
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                     Select an exam first
                   </p>
                 )}
@@ -711,16 +701,16 @@ export default function BooksPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Book PDF (Optional)
               </label>
               <input
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className="w-full border border-gray-300 rounded-md py-2 px-3"
+                className="w-full border border-gray-300 dark:border-gray-700 rounded-md py-2 px-3 dark:bg-gray-800 dark:text-gray-200"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Upload a PDF version of the book if available
               </p>
             </div>
@@ -749,9 +739,9 @@ export default function BooksPage() {
             <Card key={book.id} className="hover:shadow-md transition-shadow">
               <div className="flex flex-col h-full">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{book.title}</h3>
-                  <p className="text-sm text-gray-600">by {book.author}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{book.title}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">by {book.author}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Subject: {book.subjects.name} | Exam: {book.subjects.exams.name}
                   </p>
                 </div>
@@ -762,7 +752,7 @@ export default function BooksPage() {
                       href={book.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded-full hover:bg-gray-200"
+                      className="text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 py-1 px-3 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
                     >
                       Visit Link
                     </a>
@@ -773,14 +763,14 @@ export default function BooksPage() {
                       href={book.pdf_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm bg-blue-50 text-blue-700 py-1 px-3 rounded-full hover:bg-blue-100"
+                      className="text-sm bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 py-1 px-3 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50"
                     >
                       View PDF
                     </a>
                   )}
                   
                   <button
-                    className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded-full hover:bg-gray-200 flex items-center"
+                    className="text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 py-1 px-3 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center"
                     onClick={() => handleEditBook(book)}
                     title="Edit book"
                   >
@@ -789,7 +779,7 @@ export default function BooksPage() {
                   </button>
                   
                   <button
-                    className="text-sm bg-red-50 text-red-700 py-1 px-3 rounded-full hover:bg-red-100 flex items-center"
+                    className="text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 py-1 px-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
                     onClick={() => handleDeleteBook(book.id)}
                     disabled={isDeleting}
                     title="Delete book"

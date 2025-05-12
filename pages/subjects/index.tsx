@@ -7,6 +7,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { supabase } from '../../lib/supabase';
 import { Subject, Exam } from '../../types/database';
+import { ArrowLeftIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 export default function SubjectsPage() {
   const router = useRouter();
@@ -77,26 +78,24 @@ export default function SubjectsPage() {
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
             {exam ? `${exam.name} Subjects` : 'All Subjects'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300">
             {exam 
               ? `Manage subjects for ${exam.name}` 
               : 'Manage all subjects across exams'}
           </p>
         </div>
         <Link href={exam_id ? `/subjects/new?exam_id=${exam_id}` : '/subjects/new'}>
-          <Button>Add New Subject</Button>
+          <Button data-add-button="true">Add New Subject</Button>
         </Link>
       </div>
 
       {exam && (
         <div className="mb-4">
-          <Link href="/exams" className="text-primary-600 hover:underline flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+          <Link href="/exams" className="text-primary-600 dark:text-primary-400 hover:underline hover:text-primary-700 dark:hover:text-primary-300 flex items-center">
+            <ArrowLeftIcon className="w-4 h-4 mr-1" />
             Back to Exams
           </Link>
         </div>
@@ -105,10 +104,10 @@ export default function SubjectsPage() {
       <Card>
         {loading ? (
           <div className="text-center py-4">
-            <p>Loading subjects...</p>
+            <p className="dark:text-gray-200">Loading subjects...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 p-4 rounded-md text-red-600">
+          <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-red-600 dark:text-red-400">
             <p>{error}</p>
             <Button variant="outline" size="sm" className="mt-2" onClick={fetchData}>
               Retry
@@ -116,85 +115,145 @@ export default function SubjectsPage() {
           </div>
         ) : subjects.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No subjects found</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No subjects found</p>
             <Link href={exam_id ? `/subjects/new?exam_id=${exam_id}` : '/subjects/new'}>
               <Button>Add Your First Subject</Button>
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  {!exam && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Exam
+          <>
+            {/* Table view for desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Name
                     </th>
-                  )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Syllabus PDF
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Chapters
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {subjects.map((subject) => (
-                  <tr key={subject.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{subject.name}</div>
-                    </td>
                     {!exam && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {subject.exam?.name || 'Unknown Exam'}
-                      </td>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Exam
+                      </th>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {subject.syllabus_pdf_url ? (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Syllabus PDF
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Chapters
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {subjects.map((subject) => (
+                    <tr key={subject.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900 dark:text-white">{subject.name}</div>
+                      </td>
+                      {!exam && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {subject.exam?.name || 'Unknown Exam'}
+                        </td>
+                      )}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {subject.syllabus_pdf_url ? (
+                          <a 
+                            href={subject.syllabus_pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-600 dark:text-primary-400 hover:underline"
+                          >
+                            View Syllabus
+                          </a>
+                        ) : (
+                          <span>No PDF</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <Link href={`/chapters?subject_id=${subject.id}`} className="text-primary-600 dark:text-primary-400 hover:underline">
+                          View Chapters
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link href={`/subjects/${subject.id}/edit`} className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 mr-3">
+                          Edit
+                        </Link>
+                        <button
+                          onClick={() => {
+                            // Logic to delete subject would go here
+                            // Could use a confirmation modal before deleting
+                            alert('Delete functionality would be implemented here');
+                          }}
+                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Card view for mobile */}
+            <div className="md:hidden grid grid-cols-1 gap-4">
+              {subjects.map((subject) => (
+                <Card key={subject.id} className="hover:shadow-md transition-shadow">
+                  <div className="flex flex-col h-full">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{subject.name}</h3>
+                      {!exam && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Exam: {subject.exam?.name || 'Unknown Exam'}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap mt-auto pt-4 gap-2">
+                      <Link 
+                        href={`/chapters?subject_id=${subject.id}`}
+                        className="text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 py-1 px-3 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+                      >
+                        View Chapters
+                      </Link>
+                      
+                      {subject.syllabus_pdf_url && (
                         <a 
                           href={subject.syllabus_pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary-600 hover:underline"
+                          className="text-sm bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 py-1 px-3 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50"
                         >
                           View Syllabus
                         </a>
-                      ) : (
-                        <span>No PDF</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Link href={`/chapters?subject_id=${subject.id}`} className="text-primary-600 hover:underline">
-                        View Chapters
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/subjects/${subject.id}/edit`} className="text-primary-600 hover:text-primary-800 mr-3">
+                      
+                      <Link 
+                        href={`/subjects/${subject.id}/edit`}
+                        className="text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 py-1 px-3 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center"
+                      >
+                        <PencilSquareIcon className="h-4 w-4 mr-1" />
                         Edit
                       </Link>
+                      
                       <button
+                        className="text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 py-1 px-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
                         onClick={() => {
                           // Logic to delete subject would go here
-                          // Could use a confirmation modal before deleting
                           alert('Delete functionality would be implemented here');
                         }}
-                        className="text-red-600 hover:text-red-800"
                       >
+                        <TrashIcon className="h-4 w-4 mr-1" />
                         Delete
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
       </Card>
     </Layout>

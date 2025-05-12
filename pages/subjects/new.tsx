@@ -95,25 +95,29 @@ export default function NewSubject() {
       </Head>
       
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Add New Subject</h1>
-        <p className="text-gray-600">Create a new subject for an exam</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Add New Subject</h1>
+        <p className="text-gray-600 dark:text-gray-300">Create a new subject for an exam</p>
       </div>
       
       <Card>
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md">
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-md">
               {error}
             </div>
           )}
           
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Exam</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Exam</label>
             {fetchingExams ? (
-              <p className="text-sm text-gray-500">Loading exams...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Loading exams...</p>
             ) : (
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md 
+                  focus:outline-none focus:ring-2 focus:ring-primary-500 
+                  dark:bg-gray-800 dark:text-gray-200
+                  disabled:bg-gray-100 disabled:text-gray-500 
+                  dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                 value={selectedExamId || ''}
                 onChange={(e) => setSelectedExamId(e.target.value)}
                 disabled={exam_id !== undefined}

@@ -51,14 +51,14 @@ export default function NewExam() {
       </Head>
       
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Add New Exam</h1>
-        <p className="text-gray-600">Create a new exam category</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Add New Exam</h1>
+        <p className="text-gray-600 dark:text-gray-300">Create a new exam category</p>
       </div>
       
       <Card>
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md">
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-md">
               {error}
             </div>
           )}

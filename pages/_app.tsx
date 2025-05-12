@@ -1,6 +1,7 @@
 import { AppProps } from 'next/app';
 import { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from '../lib/themeContext';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }: AppProps) {
@@ -16,15 +17,16 @@ function MyApp({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <Component {...pageProps} />
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#363636',
-            color: '#fff',
+            background: 'var(--toaster-bg, #363636)',
+            color: 'var(--toaster-color, #fff)',
+            borderRadius: '0.5rem',
           },
           success: {
             duration: 3000,
@@ -42,7 +44,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           },
         }}
       />
-    </>
+    </ThemeProvider>
   );
 }
 
