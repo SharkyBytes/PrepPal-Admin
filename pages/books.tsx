@@ -7,7 +7,7 @@ import Input from '../components/ui/Input';
 import { supabase } from '../lib/supabase';
 import AddExamModal from '../components/books/AddExamModal';
 import AddSubjectModal from '../components/books/AddSubjectModal';
-import { PlusCircleIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, TrashIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 
 // Define types for our data
 interface Exam {
@@ -62,6 +62,11 @@ export default function BooksPage() {
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  
+  // Edit book state
+  const [isEditingBook, setIsEditingBook] = useState(false);
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Modal states for adding exam and subject
   const [isAddExamModalOpen, setIsAddExamModalOpen] = useState(false);
@@ -227,9 +232,218 @@ export default function BooksPage() {
     }
   };
   
+  // Handle edit book
+  const handleEditBook = (book: Book) => {
+    // Find the exam id from the book's subject
+    const examId = book.subjects?.exam_id || '';
+    
+    setEditingBookId(book.id);
+    setNewBook({
+      title: book.title,
+      author: book.author,
+      link: book.link || '',
+      subject_id: book.subject_id,
+      exam_id: examId,
+    });
+    setIsAddingBook(true);
+    setIsEditingBook(true);
+    
+    // Scroll to the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  // Handle book deletion
+  const handleDeleteBook = async (bookId: string) => {
+    if (!confirm('Are you sure you want to delete this book? This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      const book = books.find(b => b.id === bookId);
+      
+      // Delete PDF file if it exists
+      if (book?.pdf_url) {
+        // Extract just the filename from the URL
+        const url = new URL(book.pdf_url);
+        // Get the last segment of the URL path which is the filename
+        const pathname = url.pathname;
+        const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+        
+        console.log(`Attempting to delete PDF file: ${filename}`);
+        
+        if (filename) {
+          try {
+            const { error: deleteError } = await supabase.storage
+              .from('books')
+              .remove([filename]);
+            
+            if (deleteError) {
+              console.error('Error deleting PDF file:', deleteError);
+            } else {
+              console.log(`Successfully deleted PDF file: ${filename} from books bucket`);
+            }
+          } catch (storageError) {
+            console.error('Storage deletion error:', storageError);
+          }
+        }
+      }
+      
+      // Delete the book record
+      const { error } = await supabase
+        .from('books')
+        .delete()
+        .eq('id', bookId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setBooks(books.filter(b => b.id !== bookId));
+      setSuccess('Book deleted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error deleting book:', error);
+      setError('Failed to delete book. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Sanitize filename by replacing spaces and special characters with underscores
+  const sanitizeFilename = (filename: string): string => {
+    // First, get file extension
+    const lastDot = filename.lastIndexOf('.');
+    const extension = lastDot !== -1 ? filename.slice(lastDot) : '';
+    const nameWithoutExt = lastDot !== -1 ? filename.slice(0, lastDot) : filename;
+    
+    // Replace spaces and special chars with underscore
+    const sanitized = nameWithoutExt
+      .replace(/[^a-zA-Z0-9]/g, '_') // Replace non-alphanumeric with underscore
+      .replace(/_+/g, '_'); // Replace multiple underscores with a single one
+    
+    return sanitized + extension;
+  };
+
+  // Update existing book
+  const updateBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setUploading(true);
+    
+    try {
+      // Validate required fields
+      if (!newBook.title || !newBook.author || !newBook.subject_id) {
+        throw new Error('Title, Author, and Subject are required');
+      }
+      
+      // Prepare update data
+      const updateData: any = {
+        title: newBook.title,
+        author: newBook.author,
+        link: newBook.link || null,
+        subject_id: newBook.subject_id,
+      };
+      
+      // Update the PDF file if a new one is provided
+      if (pdfFile) {
+        // Get the existing book to check if it has a PDF
+        const existingBook = books.find(b => b.id === editingBookId);
+        
+        // If there's an existing PDF, delete it
+        if (existingBook?.pdf_url) {
+          // Extract just the filename from the URL
+          const url = new URL(existingBook.pdf_url);
+          const pathname = url.pathname;
+          const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+          
+          console.log(`Attempting to delete previous PDF file: ${filename}`);
+          
+          if (filename) {
+            try {
+              const { error: deleteError } = await supabase.storage
+                .from('books')
+                .remove([filename]);
+              
+              if (deleteError) {
+                console.error('Error deleting previous PDF file:', deleteError);
+              } else {
+                console.log(`Successfully deleted previous PDF file: ${filename} from books bucket`);
+              }
+            } catch (storageError) {
+              console.error('Storage deletion error:', storageError);
+            }
+          }
+        }
+        
+        // Upload the new PDF with sanitized filename
+        const sanitizedName = sanitizeFilename(pdfFile.name);
+        const fileName = `${Date.now()}_${sanitizedName}`;
+        
+        console.log(`Original filename: ${pdfFile.name}`);
+        console.log(`Sanitized filename: ${sanitizedName}`);
+        console.log(`Final filename for upload: ${fileName}`);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('books')
+          .upload(fileName, pdfFile);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get the public URL
+        const { data: urlData } = supabase.storage
+          .from('books')
+          .getPublicUrl(fileName);
+        
+        updateData.pdf_url = urlData.publicUrl;
+      }
+      
+      // Update the book in the database
+      const { data: bookData, error: bookError } = await supabase
+        .from('books')
+        .update(updateData)
+        .eq('id', editingBookId)
+        .select('*, subjects:subject_id(name, exam_id, exams:exam_id(name))')
+        .single();
+      
+      if (bookError) throw bookError;
+      
+      // Update local state
+      setBooks(books.map(b => b.id === editingBookId ? bookData : b));
+      
+      // Reset form
+      setNewBook({
+        title: '',
+        author: '',
+        link: '',
+        subject_id: '',
+        exam_id: '',
+      });
+      setPdfFile(null);
+      setIsAddingBook(false);
+      setIsEditingBook(false);
+      setEditingBookId(null);
+      
+      setSuccess('Book updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error updating book:', error);
+      setError('Failed to update book. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+  
   // Submit new book
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // If editing, call the update function instead
+    if (isEditingBook) {
+      return updateBook(e);
+    }
+    
     setError('');
     setSuccess('');
     setUploading(true);
@@ -256,7 +470,14 @@ export default function BooksPage() {
       
       // Upload PDF if provided
       if (pdfFile && bookData) {
-        const fileName = `${Date.now()}_${pdfFile.name}`;
+        // Sanitize the filename before uploading
+        const sanitizedName = sanitizeFilename(pdfFile.name);
+        const fileName = `${Date.now()}_${sanitizedName}`;
+        
+        console.log(`Original filename: ${pdfFile.name}`);
+        console.log(`Sanitized filename: ${sanitizedName}`);
+        console.log(`Final filename for upload: ${fileName}`);
+        
         const { error: uploadError } = await supabase.storage
           .from('books')
           .upload(fileName, pdfFile);
@@ -267,13 +488,13 @@ export default function BooksPage() {
         const { data: urlData } = supabase.storage
           .from('books')
           .getPublicUrl(fileName);
-          
+        
         // Update book with PDF URL
         const { error: updateError } = await supabase
           .from('books')
           .update({ pdf_url: urlData.publicUrl })
           .eq('id', bookData.id);
-          
+        
         if (updateError) throw updateError;
       }
       
@@ -292,7 +513,7 @@ export default function BooksPage() {
     } finally {
       setUploading(false);
     }
-  }
+  };
   
   return (
     <Layout>
@@ -302,10 +523,24 @@ export default function BooksPage() {
       
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Books</h1>
-        <Button onClick={() => setIsAddingBook(!isAddingBook)}>
-          {isAddingBook ? 'Cancel' : 'Add New Book'}
-        </Button>
+        {!isAddingBook && (
+          <Button onClick={() => setIsAddingBook(true)}>
+            Add New Book
+          </Button>
+        )}
       </div>
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 text-green-800 rounded-md">
+          {success}
+        </div>
+      )}
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-800 rounded-md">
+          {error}
+        </div>
+      )}
       
       {/* Filters */}
       <Card className="mb-6">
@@ -339,6 +574,7 @@ export default function BooksPage() {
               className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500"
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
+              disabled={!selectedExam}
             >
               <option value="">All Subjects</option>
               {filteredSubjects.map((subject) => (
@@ -351,22 +587,32 @@ export default function BooksPage() {
         </div>
       </Card>
       
-      {/* Add Book Form */}
+      {/* Add/Edit Book Form */}
       {isAddingBook && (
         <Card className="mb-6">
-          <h2 className="text-xl font-bold mb-4">Add New Book</h2>
-          
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm">
-              {error}
-            </div>
-          )}
-          
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-sm">
-              {success}
-            </div>
-          )}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              {isEditingBook ? 'Edit Book' : 'Add New Book'}
+            </h2>
+            <button
+              onClick={() => {
+                setIsAddingBook(false);
+                setIsEditingBook(false);
+                setEditingBookId(null);
+                setNewBook({
+                  title: '',
+                  author: '',
+                  link: '',
+                  subject_id: '',
+                  exam_id: '',
+                });
+                setPdfFile(null);
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -481,7 +727,7 @@ export default function BooksPage() {
             
             <div className="flex justify-end pt-2">
               <Button type="submit" loading={uploading}>
-                Add Book
+                {isEditingBook ? 'Update Book' : 'Add Book'}
               </Button>
             </div>
           </form>
@@ -534,13 +780,22 @@ export default function BooksPage() {
                   )}
                   
                   <button
-                    className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded-full hover:bg-gray-200"
-                    onClick={() => {
-                      // Handle edit in a future implementation
-                      alert('Edit functionality will be added here');
-                    }}
+                    className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded-full hover:bg-gray-200 flex items-center"
+                    onClick={() => handleEditBook(book)}
+                    title="Edit book"
                   >
+                    <PencilSquareIcon className="h-4 w-4 mr-1" />
                     Edit
+                  </button>
+                  
+                  <button
+                    className="text-sm bg-red-50 text-red-700 py-1 px-3 rounded-full hover:bg-red-100 flex items-center"
+                    onClick={() => handleDeleteBook(book.id)}
+                    disabled={isDeleting}
+                    title="Delete book"
+                  >
+                    <TrashIcon className="h-4 w-4 mr-1" />
+                    Delete
                   </button>
                 </div>
               </div>
