@@ -43,6 +43,21 @@ If you want to quickly set up your database tables, you can use the SQL script i
 
 For detailed setup instructions, please refer to [SETUP.md](./SETUP.md).
 
+## Manual Setup for Storage Buckets
+
+The application uses Supabase Storage for storing PDF files. You'll need to set up the following buckets and policies:
+
+1. **Books Bucket** - For storing book PDFs:
+   - Run the SQL in [sql/storage-policies.sql](./sql/storage-policies.sql) in the Supabase SQL Editor
+
+2. **Syllabus Bucket** - For storing subject syllabus PDFs:
+   - Run the SQL in [sql/syllabus-storage-policies.sql](./sql/syllabus-storage-policies.sql) in the Supabase SQL Editor
+
+These SQL files will:
+- Create the necessary storage buckets if they don't exist
+- Set up proper access policies for authenticated users
+- Configure permissions for viewing, uploading, updating, and deleting files
+
 ## Database Schema
 
 The admin portal uses the following tables in your Supabase project:
@@ -73,6 +88,7 @@ The admin portal uses the following tables in your Supabase project:
    - title (text, not null)
    - author (text, not null)
    - link (text, nullable)
+   - pdf_url (text, nullable)
    - created_at (timestamp with time zone, default: now())
 
 ## Deployment
@@ -90,6 +106,7 @@ If you experience any issues:
 1. Check the detailed setup instructions in [SETUP.md](./SETUP.md)
 2. Verify your Supabase configuration
 3. Make sure your environment variables are set correctly
+4. If file uploads are failing, ensure the storage buckets are created properly
 
 ## Integration with Flutter App
 

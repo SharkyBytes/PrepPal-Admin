@@ -15,6 +15,7 @@ export default function NewSubject() {
   const [name, setName] = useState('');
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fetchingExams, setFetchingExams] = useState(true);
@@ -49,6 +50,33 @@ export default function NewSubject() {
     }
   }
 
+  // Handle file input
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setPdfFile(file);
+    } else if (file) {
+      setError('Please upload a PDF file');
+      setPdfFile(null);
+      e.target.value = '';
+    }
+  };
+
+  // Sanitize filename by replacing spaces and special characters with underscores
+  const sanitizeFilename = (filename: string): string => {
+    // First, get file extension
+    const lastDot = filename.lastIndexOf('.');
+    const extension = lastDot !== -1 ? filename.slice(lastDot) : '';
+    const nameWithoutExt = lastDot !== -1 ? filename.slice(0, lastDot) : filename;
+    
+    // Replace spaces and special chars with underscore
+    const sanitized = nameWithoutExt
+      .replace(/[^a-zA-Z0-9]/g, '_') // Replace non-alphanumeric with underscore
+      .replace(/_+/g, '_'); // Replace multiple underscores with a single one
+    
+    return sanitized + extension;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -66,12 +94,51 @@ export default function NewSubject() {
       setLoading(true);
       setError('');
       
+      // Prepare subject data
+      const subjectData: any = { 
+        name, 
+        exam_id: selectedExamId 
+      };
+      
+      // If PDF file is provided, check for bucket and upload
+      if (pdfFile) {
+        // Check if syllabus bucket exists
+        try {
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const bucketExists = buckets?.some(bucket => bucket.name === 'syllabus');
+          
+          if (!bucketExists) {
+            // Create the bucket if it doesn't exist
+            await supabase.storage.createBucket('syllabus', {
+              public: true
+            });
+          }
+        } catch (bucketError) {
+          console.error('Error checking/creating storage bucket:', bucketError);
+        }
+        
+        // Upload the PDF with sanitized filename
+        const sanitizedName = sanitizeFilename(pdfFile.name);
+        const fileName = `${Date.now()}_${sanitizedName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('syllabus')
+          .upload(fileName, pdfFile);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get the public URL
+        const { data: urlData } = supabase.storage
+          .from('syllabus')
+          .getPublicUrl(fileName);
+        
+        subjectData.syllabus_pdf_url = urlData.publicUrl;
+      }
+      
+      // Insert the subject
       const { data, error } = await supabase
         .from('subjects')
-        .insert([{ 
-          name, 
-          exam_id: selectedExamId 
-        }])
+        .insert([subjectData])
         .select()
         .single();
       
@@ -140,6 +207,21 @@ export default function NewSubject() {
             placeholder="e.g., Physics, Chemistry, Mathematics"
             required
           />
+          
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Syllabus PDF (Optional)
+            </label>
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="w-full border border-gray-300 dark:border-gray-700 rounded-md py-2 px-3 dark:bg-gray-800 dark:text-gray-200"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Upload a PDF version of the syllabus if available
+            </p>
+          </div>
           
           <div className="flex gap-3 mt-6">
             <Button type="button" variant="outline" onClick={() => router.back()}>

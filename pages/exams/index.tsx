@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Layout from '../../components/layout/Layout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -9,9 +10,12 @@ import { Exam } from '../../types/database';
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 export default function ExamsPage() {
+  const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchExams();
@@ -40,6 +44,66 @@ export default function ExamsPage() {
     }
   }
 
+  const handleDeleteExam = async (examId: string) => {
+    if (!confirm('Are you sure you want to delete this exam? This will also delete all associated subjects and chapters. This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      // Get associated subjects to this exam
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id, syllabus_pdf_url')
+        .eq('exam_id', examId);
+        
+      // Delete syllabus PDFs from storage if they exist
+      if (subjects && subjects.length > 0) {
+        for (const subject of subjects) {
+          if (subject.syllabus_pdf_url) {
+            try {
+              // Extract filename from URL
+              const url = new URL(subject.syllabus_pdf_url);
+              const pathname = url.pathname;
+              const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+              
+              if (filename) {
+                const { error: deleteFileError } = await supabase.storage
+                  .from('syllabus')
+                  .remove([filename]);
+                  
+                if (deleteFileError) {
+                  console.error('Error deleting syllabus file:', deleteFileError);
+                }
+              }
+            } catch (err) {
+              console.error('Error parsing syllabus URL:', err);
+            }
+          }
+        }
+      }
+      
+      // Delete the exam (cascade delete will handle subjects and chapters)
+      const { error } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', examId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setExams(exams.filter(exam => exam.id !== examId));
+      setSuccess('Exam deleted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(error.message || 'An error occurred while deleting the exam');
+      console.error('Error deleting exam:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Layout>
       <Head>
@@ -55,6 +119,12 @@ export default function ExamsPage() {
           <Button data-add-button="true">Add New Exam</Button>
         </Link>
       </div>
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-green-800 dark:text-green-400 rounded-md">
+          {success}
+        </div>
+      )}
 
       <Card>
         {loading ? (
@@ -115,12 +185,9 @@ export default function ExamsPage() {
                           Edit
                         </Link>
                         <button
-                          onClick={() => {
-                            // Logic to delete exam would go here
-                            // Could use a confirmation modal before deleting
-                            alert('Delete functionality would be implemented here');
-                          }}
+                          onClick={() => handleDeleteExam(exam.id)}
                           className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                          disabled={isDeleting}
                         >
                           Delete
                         </button>
@@ -161,10 +228,8 @@ export default function ExamsPage() {
                       
                       <button
                         className="text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 py-1 px-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
-                        onClick={() => {
-                          // Logic to delete exam would go here
-                          alert('Delete functionality would be implemented here');
-                        }}
+                        onClick={() => handleDeleteExam(exam.id)}
+                        disabled={isDeleting}
                       >
                         <TrashIcon className="h-4 w-4 mr-1" />
                         Delete

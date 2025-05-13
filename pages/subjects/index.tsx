@@ -14,27 +14,55 @@ export default function SubjectsPage() {
   const { exam_id } = router.query;
   
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
   const [exam, setExam] = useState<Exam | null>(null);
+  const [selectedExam, setSelectedExam] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    fetchExams();
+  }, []);
+  
+  useEffect(() => {
     if (router.isReady) {
+      if (exam_id) {
+        setSelectedExam(exam_id as string);
+      }
       fetchData();
     }
-  }, [router.isReady, exam_id]);
+  }, [router.isReady, exam_id, selectedExam]);
+
+  async function fetchExams() {
+    try {
+      const { data, error } = await supabase
+        .from('exams')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      
+      if (data) {
+        setExams(data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching exams:', error);
+    }
+  }
 
   async function fetchData() {
     try {
       setLoading(true);
       setError('');
       
-      // If exam_id is provided, fetch the exam details
-      if (exam_id) {
+      // If exam_id or selectedExam is provided, fetch the exam details
+      if (selectedExam) {
         const { data: examData, error: examError } = await supabase
           .from('exams')
           .select('*')
-          .eq('id', exam_id)
+          .eq('id', selectedExam)
           .single();
           
         if (examError) throw examError;
@@ -44,20 +72,21 @@ export default function SubjectsPage() {
         const { data: subjectsData, error: subjectsError } = await supabase
           .from('subjects')
           .select('*')
-          .eq('exam_id', exam_id)
-          .order('created_at', { ascending: false });
+          .eq('exam_id', selectedExam)
+          .order('name');
           
         if (subjectsError) throw subjectsError;
         setSubjects(subjectsData || []);
       } else {
         // Fetch all subjects with their exam information
+        setExam(null);
         const { data: subjectsData, error: subjectsError } = await supabase
           .from('subjects')
           .select(`
             *,
             exam:exams(name)
           `)
-          .order('created_at', { ascending: false });
+          .order('name');
           
         if (subjectsError) throw subjectsError;
         setSubjects(subjectsData || []);
@@ -69,6 +98,75 @@ export default function SubjectsPage() {
       setLoading(false);
     }
   }
+
+  const handleExamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const examId = e.target.value;
+    setSelectedExam(examId);
+    
+    // Update URL without full page reload
+    const query = examId ? { exam_id: examId } : {};
+    router.push({
+      pathname: router.pathname,
+      query
+    }, undefined, { shallow: true });
+  };
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    if (!confirm('Are you sure you want to delete this subject? This will also delete all associated chapters and books. This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      // Check if subject has syllabus PDF
+      const { data: subject } = await supabase
+        .from('subjects')
+        .select('syllabus_pdf_url')
+        .eq('id', subjectId)
+        .single();
+      
+      // Delete syllabus PDF if it exists
+      if (subject?.syllabus_pdf_url) {
+        try {
+          // Extract filename from URL
+          const url = new URL(subject.syllabus_pdf_url);
+          const pathname = url.pathname;
+          const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+          
+          if (filename) {
+            const { error: deleteFileError } = await supabase.storage
+              .from('syllabus')
+              .remove([filename]);
+              
+            if (deleteFileError) {
+              console.error('Error deleting syllabus file:', deleteFileError);
+            }
+          }
+        } catch (err) {
+          console.error('Error parsing syllabus URL:', err);
+        }
+      }
+      
+      // Delete the subject (cascade delete will handle chapters and books)
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setSubjects(subjects.filter(subject => subject.id !== subjectId));
+      setSuccess('Subject deleted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(error.message || 'An error occurred while deleting the subject');
+      console.error('Error deleting subject:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Layout>
@@ -87,7 +185,7 @@ export default function SubjectsPage() {
               : 'Manage all subjects across exams'}
           </p>
         </div>
-        <Link href={exam_id ? `/subjects/new?exam_id=${exam_id}` : '/subjects/new'}>
+        <Link href={selectedExam ? `/subjects/new?exam_id=${selectedExam}` : '/subjects/new'}>
           <Button data-add-button="true">Add New Subject</Button>
         </Link>
       </div>
@@ -100,6 +198,36 @@ export default function SubjectsPage() {
           </Link>
         </div>
       )}
+
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-green-800 dark:text-green-400 rounded-md">
+          {success}
+        </div>
+      )}
+
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Filter by Exam
+            </label>
+            <select
+              className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm 
+                focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-200"
+              value={selectedExam}
+              onChange={handleExamChange}
+            >
+              <option value="">All Exams</option>
+              {exams.map((exam) => (
+                <option key={exam.id} value={exam.id}>
+                  {exam.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         {loading ? (
@@ -116,7 +244,7 @@ export default function SubjectsPage() {
         ) : subjects.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500 dark:text-gray-400 mb-4">No subjects found</p>
-            <Link href={exam_id ? `/subjects/new?exam_id=${exam_id}` : '/subjects/new'}>
+            <Link href={selectedExam ? `/subjects/new?exam_id=${selectedExam}` : '/subjects/new'}>
               <Button>Add Your First Subject</Button>
             </Link>
           </div>
@@ -181,12 +309,9 @@ export default function SubjectsPage() {
                           Edit
                         </Link>
                         <button
-                          onClick={() => {
-                            // Logic to delete subject would go here
-                            // Could use a confirmation modal before deleting
-                            alert('Delete functionality would be implemented here');
-                          }}
+                          onClick={() => handleDeleteSubject(subject.id)}
                           className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                          disabled={isDeleting}
                         >
                           Delete
                         </button>
@@ -240,10 +365,8 @@ export default function SubjectsPage() {
                       
                       <button
                         className="text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 py-1 px-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
-                        onClick={() => {
-                          // Logic to delete subject would go here
-                          alert('Delete functionality would be implemented here');
-                        }}
+                        onClick={() => handleDeleteSubject(subject.id)}
+                        disabled={isDeleting}
                       >
                         <TrashIcon className="h-4 w-4 mr-1" />
                         Delete
