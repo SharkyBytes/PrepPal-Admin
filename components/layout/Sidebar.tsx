@@ -104,8 +104,20 @@ const Sidebar: FC = () => {
 
   // Get current page title
   const getCurrentPageTitle = () => {
-    const currentItem = navItems.find(item => item.href === router.pathname);
-    return currentItem ? currentItem.text : 'Dashboard';
+    // First try exact match
+    const exactMatch = navItems.find(item => item.href === router.pathname);
+    if (exactMatch) return exactMatch.text;
+    
+    // Then try prefix match for nested routes (like /exams/new)
+    const pathParts = router.pathname.split('/');
+    if (pathParts.length > 1) {
+      const baseRoute = '/' + pathParts[1]; // e.g., '/exams' from '/exams/new'
+      const prefixMatch = navItems.find(item => item.href === baseRoute);
+      if (prefixMatch) return prefixMatch.text;
+    }
+    
+    // Default fallback
+    return 'Dashboard';
   };
 
   // Handle add button click based on current path

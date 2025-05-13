@@ -185,7 +185,7 @@ export default function SubjectsPage() {
               : 'Manage all subjects across exams'}
           </p>
         </div>
-        <Link href={selectedExam ? `/subjects/new?exam_id=${selectedExam}` : '/subjects/new'}>
+        <Link href={selectedExam ? `/subjects/new?exam_id=${selectedExam}` : '/subjects/new'} className="hidden md:block">
           <Button data-add-button="true">Add New Subject</Button>
         </Link>
       </div>

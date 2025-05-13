@@ -1,5 +1,4 @@
 -- Create the syllabus bucket if it doesn't exist
--- Run this in the Supabase SQL Editor
 insert into storage.buckets (id, name, public)
 values ('syllabus', 'syllabus', true)
 on conflict (id) do nothing;
@@ -20,10 +19,10 @@ with check (bucket_id = 'syllabus');
 create policy "Allow authenticated users to update their syllabus PDFs"
 on storage.objects for update
 to authenticated
-using (bucket_id = 'syllabus' AND auth.uid()::text = owner);
+using (bucket_id = 'syllabus' AND auth.uid()::uuid = owner);
 
 -- Allow authenticated users to delete their files from the syllabus bucket
 create policy "Allow authenticated users to delete their syllabus PDFs"
 on storage.objects for delete
 to authenticated
-using (bucket_id = 'syllabus' AND auth.uid()::text = owner); 
+using (bucket_id = 'syllabus' AND auth.uid()::uuid = owner);

@@ -515,7 +515,7 @@ export default function ChaptersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Chapters</h1>
         {!isAddingChapter && (
-          <Button onClick={() => setIsAddingChapter(true)} data-add-button="true">
+          <Button onClick={() => setIsAddingChapter(true)} data-add-button="true" className="hidden md:inline-flex">
             Add New Chapter
           </Button>
         )}

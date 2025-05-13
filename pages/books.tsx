@@ -506,7 +506,7 @@ export default function BooksPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Books</h1>
         {!isAddingBook && (
-          <Button onClick={() => setIsAddingBook(true)} data-add-button="true">
+          <Button onClick={() => setIsAddingBook(true)} data-add-button="true" className="hidden md:inline-flex">
             Add New Book
           </Button>
         )}

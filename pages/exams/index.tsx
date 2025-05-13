@@ -115,7 +115,7 @@ export default function ExamsPage() {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Exams</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage exam categories for your application</p>
         </div>
-        <Link href="/exams/new">
+        <Link href="/exams/new" className="hidden md:block">
           <Button data-add-button="true">Add New Exam</Button>
         </Link>
       </div>
