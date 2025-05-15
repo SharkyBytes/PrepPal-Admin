@@ -17,6 +17,7 @@ import {
   SunIcon,
   MoonIcon,
   PlusIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 
 type NavItemProps = {
@@ -94,6 +95,11 @@ const Sidebar: FC = () => {
       href: '/chapters',
       icon: <DocumentTextIcon className="stroke-2" />,
       text: 'Chapters',
+    },
+    {
+      href: '/questions',
+      icon: <QuestionMarkCircleIcon className="stroke-2" />,
+      text: 'Questions',
     },
     {
       href: '/books',
