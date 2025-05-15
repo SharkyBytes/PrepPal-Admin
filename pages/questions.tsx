@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { supabase } from '../lib/supabase';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 // Define types for our data
 interface Exam {
@@ -24,7 +25,7 @@ interface Chapter {
 }
 
 interface Question {
-  id?: string;
+  id: string;
   question_text: string;
   option_a: string;
   option_b: string;
@@ -349,6 +350,33 @@ export default function QuestionsPage() {
     }
   };
 
+  // Function to delete a question
+  const handleDeleteQuestion = async (questionId: string) => {
+    try {
+      setLoadingSavedQuestions(true);
+      
+      const { error } = await supabase
+        .from('questions')
+        .delete()
+        .eq('id', questionId);
+      
+      if (error) throw error;
+      
+      // Update the UI by removing the deleted question
+      setSavedQuestions(prevQuestions => 
+        prevQuestions.filter(question => question.id !== questionId)
+      );
+      
+      setSuccess('Question deleted successfully');
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      setError('Failed to delete question');
+    } finally {
+      setLoadingSavedQuestions(false);
+    }
+  };
+
   const renderAddQuestionsTab = () => {
     return (
       <>
@@ -604,6 +632,7 @@ export default function QuestionsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Option D</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Correct</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Explanation</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -619,6 +648,15 @@ export default function QuestionsPage() {
                       <td className="px-6 py-4 whitespace-normal text-sm text-gray-900 dark:text-gray-100">{question.option_d}</td>
                       <td className="px-6 py-4 whitespace-normal text-sm text-gray-900 dark:text-gray-100">{question.correct_option}</td>
                       <td className="px-6 py-4 whitespace-normal text-sm text-gray-900 dark:text-gray-100">{question.explaination}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        <button
+                          onClick={() => handleDeleteQuestion(question.id)}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title="Delete question"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
