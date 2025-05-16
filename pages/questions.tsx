@@ -72,6 +72,15 @@ export default function QuestionsPage() {
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
   const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([]);
   
+  // Multiple selection state
+  const [targetSelections, setTargetSelections] = useState<{
+    exam_id: string;
+    subject_id: string;
+    chapter_id: string;
+    filteredSubjects: Subject[];
+    filteredChapters: Chapter[];
+  }[]>([]);
+  
   // Preview Questions tab state
   const [previewExam, setPreviewExam] = useState('');
   const [previewSubject, setPreviewSubject] = useState('');
@@ -300,10 +309,68 @@ export default function QuestionsPage() {
     }
   };
 
+  // Add current selection to target selections
+  const handleAddSelection = () => {
+    // Validate that all are selected
+    if (!selectedExam || !selectedSubject || !selectedChapter) {
+      setError('Please select an exam, subject, and chapter before adding');
+      return;
+    }
+
+    // Check for duplicates
+    const isDuplicate = targetSelections.some(
+      selection => selection.chapter_id === selectedChapter
+    );
+
+    if (isDuplicate) {
+      setError('This chapter selection is already added');
+      return;
+    }
+
+    // Add new selection
+    setTargetSelections([
+      ...targetSelections,
+      {
+        exam_id: selectedExam,
+        subject_id: selectedSubject,
+        chapter_id: selectedChapter,
+        filteredSubjects,
+        filteredChapters
+      }
+    ]);
+
+    // Clear success/error messages
+    setSuccess('Target added successfully');
+    setTimeout(() => setSuccess(''), 2000);
+    setError('');
+    
+    // Optionally clear selections to make it easier to add another set
+    // Comment out the next three lines if you prefer keeping the selections
+    setSelectedExam('');
+    setSelectedSubject('');
+    setSelectedChapter('');
+  };
+
+  // Remove a selection
+  const handleRemoveSelection = (index: number) => {
+    const newSelections = [...targetSelections];
+    newSelections.splice(index, 1);
+    setTargetSelections(newSelections);
+  };
+
+  // Get selection label for display
+  const getSelectionLabel = (selection: any) => {
+    const exam = exams.find(e => e.id === selection.exam_id);
+    const subject = subjects.find(s => s.id === selection.subject_id);
+    const chapter = chapters.find(c => c.id === selection.chapter_id);
+    
+    return `${exam?.name || 'Unknown'} → ${subject?.name || 'Unknown'} → ${chapter?.name || 'Unknown'}`;
+  };
+
   const handleSubmitQuestions = async () => {
-    // Validate selections
-    if (!selectedChapter) {
-      setError('Please select a chapter before submitting questions');
+    // Check if we have any selections
+    if (targetSelections.length === 0 && !selectedChapter) {
+      setError('Please select at least one chapter destination for the questions');
       return;
     }
 
@@ -317,17 +384,32 @@ export default function QuestionsPage() {
     setSuccess('');
 
     try {
-      // Prepare questions with chapter_id
-      const questionsToInsert = questions.map(q => ({
-        chapter_id: selectedChapter,
-        question_text: q.question_text,
-        option_a: q.option_a,
-        option_b: q.option_b,
-        option_c: q.option_c,
-        option_d: q.option_d,
-        correct_option: q.correct_option,
-        explaination: q.explaination || null
-      }));
+      // Gather all chapter destinations (including the main one if present)
+      const allDestinations = [
+        ...targetSelections.map(selection => selection.chapter_id),
+        // Include the main selection if it's valid and not already in targets
+        ...(selectedChapter && !targetSelections.some(s => s.chapter_id === selectedChapter) 
+          ? [selectedChapter] 
+          : [])
+      ];
+      
+      if (allDestinations.length === 0) {
+        throw new Error('No valid chapter destinations selected');
+      }
+      
+      // Prepare questions for all destinations
+      const questionsToInsert = allDestinations.flatMap(chapterId => 
+        questions.map(q => ({
+          chapter_id: chapterId,
+          question_text: q.question_text,
+          option_a: q.option_a,
+          option_b: q.option_b,
+          option_c: q.option_c,
+          option_d: q.option_d,
+          correct_option: q.correct_option,
+          explaination: q.explaination || null
+        }))
+      );
       
       // Insert questions into database
       const { data, error: insertError } = await supabase
@@ -337,11 +419,12 @@ export default function QuestionsPage() {
       
       if (insertError) throw insertError;
       
-      setSuccess(`Successfully saved ${questionsToInsert.length} questions to the database`);
+      setSuccess(`Successfully saved ${questions.length} questions to ${allDestinations.length} chapter destinations`);
       
       // Clear form
       setQuestions([]);
       setJsonInput('');
+      setTargetSelections([]);
     } catch (error) {
       console.error('Error saving questions:', error);
       setError('Failed to save questions: ' + (error.message || 'Unknown error'));
@@ -444,6 +527,64 @@ export default function QuestionsPage() {
               </select>
             </div>
           </div>
+          
+          {/* Add selection button */}
+          <div className="flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={handleAddSelection}
+              className="flex items-center justify-center px-4 py-2 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/60 transition-colors border border-primary-200 dark:border-primary-800 shadow-sm"
+              title="Add another exam-subject-chapter selection"
+              disabled={!selectedChapter}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 mr-2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Add This Selection
+            </button>
+          </div>
+          
+          {/* Selected targets display */}
+          {targetSelections.length > 0 && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Questions will be added to these destinations:
+              </h3>
+              <div className="space-y-2">
+                {targetSelections.map((selection, index) => (
+                  <div key={index} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-md shadow-sm border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {getSelectionLabel(selection)}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveSelection(index)}
+                      className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+                      title="Remove this selection"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 italic">
+                The same set of questions will be added to all destinations above. You can select one or multiple destinations.
+              </p>
+            </div>
+          )}
+          
+          {/* Hint when no additional targets are selected */}
+          {targetSelections.length === 0 && selectedChapter && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 inline-block mr-1">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+                </svg>
+                Need to add these questions to multiple chapters? Click the "Add This Selection" button above.
+              </p>
+            </div>
+          )}
         </Card>
         
         {/* JSON Input Form */}
@@ -531,8 +672,8 @@ export default function QuestionsPage() {
               <Button 
                 onClick={handleSubmitQuestions}
                 loading={submitting}
-                disabled={!selectedChapter || submitting}
-                className={!selectedChapter ? 'opacity-70 cursor-not-allowed' : ''}
+                disabled={(targetSelections.length === 0 && !selectedChapter) || submitting}
+                className={(targetSelections.length === 0 && !selectedChapter) ? 'opacity-70 cursor-not-allowed' : ''}
               >
                 Submit Questions to Database
               </Button>
