@@ -18,6 +18,7 @@ import {
   MoonIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 
 type NavItemProps = {
@@ -100,6 +101,11 @@ const Sidebar: FC = () => {
       href: '/questions',
       icon: <QuestionMarkCircleIcon className="stroke-2" />,
       text: 'Questions',
+    },
+    {
+      href: '/prompts',
+      icon: <ChatBubbleLeftRightIcon className="stroke-2" />,
+      text: 'Prompts',
     },
     {
       href: '/books',
