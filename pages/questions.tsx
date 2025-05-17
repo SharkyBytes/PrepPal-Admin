@@ -4,7 +4,7 @@ import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { supabase } from '../lib/supabase';
-import { TrashIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 // Define types for our data
 interface Exam {
@@ -81,7 +81,7 @@ export default function QuestionsPage() {
     filteredChapters: Chapter[];
   }[]>([]);
   
-  // Preview Questions tab state
+  // Preview Questions tab state with new selections
   const [previewExam, setPreviewExam] = useState('');
   const [previewSubject, setPreviewSubject] = useState('');
   const [previewChapter, setPreviewChapter] = useState('');
@@ -89,6 +89,9 @@ export default function QuestionsPage() {
   const [previewFilteredChapters, setPreviewFilteredChapters] = useState<Chapter[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<Question[]>([]);
   const [loadingSavedQuestions, setLoadingSavedQuestions] = useState(false);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [copyingToClipboard, setCopyingToClipboard] = useState(false);
 
   // Default JSON example for placeholder
   const defaultJsonExample = `[
@@ -231,6 +234,8 @@ export default function QuestionsPage() {
   const fetchSavedQuestions = async () => {
     setLoadingSavedQuestions(true);
     setSavedQuestions([]);
+    setSelectedQuestionIds([]);
+    setSelectAll(false);
     
     try {
       let query = supabase.from('questions').select(`
@@ -457,6 +462,93 @@ export default function QuestionsPage() {
       setError('Failed to delete question');
     } finally {
       setLoadingSavedQuestions(false);
+    }
+  };
+
+  // Function to handle single question selection
+  const handleQuestionSelection = (questionId: string) => {
+    setSelectedQuestionIds(prev => {
+      // If already selected, remove it
+      if (prev.includes(questionId)) {
+        const newSelection = prev.filter(id => id !== questionId);
+        
+        // Update selectAll state if needed
+        if (newSelection.length === 0) {
+          setSelectAll(false);
+        }
+        
+        return newSelection;
+      } 
+      // Otherwise add it
+      else {
+        const newSelection = [...prev, questionId];
+        
+        // Check if all are selected
+        if (newSelection.length === savedQuestions.length) {
+          setSelectAll(true);
+        }
+        
+        return newSelection;
+      }
+    });
+  };
+
+  // Function to handle select all checkbox
+  const handleSelectAll = () => {
+    if (selectAll) {
+      // Deselect all
+      setSelectedQuestionIds([]);
+      setSelectAll(false);
+    } else {
+      // Select all
+      const allQuestionIds = savedQuestions.map(q => q.id);
+      setSelectedQuestionIds(allQuestionIds);
+      setSelectAll(true);
+    }
+  };
+
+  // Function to copy selected questions as JSON
+  const handleCopySelectedQuestionsAsJson = () => {
+    if (selectedQuestionIds.length === 0) {
+      setError('Please select at least one question to copy');
+      return;
+    }
+
+    setCopyingToClipboard(true);
+    
+    try {
+      // Get the selected questions
+      const selectedQuestions = savedQuestions.filter(q => 
+        selectedQuestionIds.includes(q.id)
+      );
+      
+      // Format them for the clipboard
+      const formattedQuestions = selectedQuestions.map(q => ({
+        question_text: q.question_text,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        correct_option: q.correct_option,
+        explaination: q.explaination || ""
+      }));
+      
+      // Convert to pretty JSON
+      const jsonString = JSON.stringify(formattedQuestions, null, 2);
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(jsonString).then(() => {
+        setSuccess(`Copied ${selectedQuestions.length} questions to clipboard as JSON`);
+        setTimeout(() => setSuccess(''), 2000);
+      }).catch(err => {
+        console.error('Failed to copy to clipboard:', err);
+        setError('Failed to copy to clipboard');
+      });
+    } catch (error) {
+      console.error('Error formatting questions for clipboard:', error);
+      setError('Failed to format questions for clipboard');
+    } finally {
+      setCopyingToClipboard(false);
     }
   };
 
@@ -755,7 +847,38 @@ export default function QuestionsPage() {
         
         {/* Questions Table */}
         <Card>
-          <h2 className="text-xl font-semibold mb-4">Saved Questions</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Saved Questions</h2>
+            
+            {/* Actions for selected questions */}
+            {savedQuestions.length > 0 && (
+              <div className="flex space-x-3">
+                <div className="flex items-center">
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Select All
+                    </span>
+                  </label>
+                </div>
+                
+                <Button
+                  onClick={handleCopySelectedQuestionsAsJson}
+                  loading={copyingToClipboard}
+                  disabled={selectedQuestionIds.length === 0 || copyingToClipboard}
+                  className="ml-3"
+                >
+                  Copy Selected as JSON ({selectedQuestionIds.length})
+                </Button>
+              </div>
+            )}
+          </div>
+          
           {loadingSavedQuestions ? (
             <div className="py-8 text-center text-gray-500">Loading questions...</div>
           ) : savedQuestions.length === 0 ? (
@@ -765,6 +888,9 @@ export default function QuestionsPage() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Select
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Chapter</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Question</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Option A</th>
@@ -779,6 +905,23 @@ export default function QuestionsPage() {
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                   {savedQuestions.map((question) => (
                     <tr key={question.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center justify-center">
+                          <button
+                            onClick={() => handleQuestionSelection(question.id)}
+                            className={`w-6 h-6 flex items-center justify-center rounded-full border 
+                              ${selectedQuestionIds.includes(question.id) 
+                                ? 'bg-primary-500 text-white border-primary-500' 
+                                : 'border-gray-300 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'}`
+                            }
+                            title={selectedQuestionIds.includes(question.id) ? "Deselect question" : "Select question"}
+                          >
+                            {selectedQuestionIds.includes(question.id) && (
+                              <CheckIcon className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-normal text-sm text-gray-900 dark:text-gray-100">
                         {question.chapters?.name || 'Unknown Chapter'}
                       </td>
