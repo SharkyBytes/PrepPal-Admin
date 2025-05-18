@@ -552,6 +552,50 @@ export default function QuestionsPage() {
     }
   };
 
+  // Function to handle bulk deletion of selected questions
+  const handleDeleteSelectedQuestions = async () => {
+    if (selectedQuestionIds.length === 0) {
+      setError('Please select at least one question to delete');
+      return;
+    }
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete ${selectedQuestionIds.length} selected questions? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLoadingSavedQuestions(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      // Delete all selected questions
+      const { error } = await supabase
+        .from('questions')
+        .delete()
+        .in('id', selectedQuestionIds);
+      
+      if (error) throw error;
+      
+      // Update the UI by removing the deleted questions
+      setSavedQuestions(prevQuestions => 
+        prevQuestions.filter(question => !selectedQuestionIds.includes(question.id))
+      );
+      
+      // Reset selection
+      setSelectedQuestionIds([]);
+      setSelectAll(false);
+      
+      setSuccess(`Successfully deleted ${selectedQuestionIds.length} questions`);
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (error) {
+      console.error('Error deleting questions:', error);
+      setError('Failed to delete selected questions');
+    } finally {
+      setLoadingSavedQuestions(false);
+    }
+  };
+
   const renderAddQuestionsTab = () => {
     return (
       <>
@@ -867,14 +911,25 @@ export default function QuestionsPage() {
                   </label>
                 </div>
                 
-                <Button
-                  onClick={handleCopySelectedQuestionsAsJson}
-                  loading={copyingToClipboard}
-                  disabled={selectedQuestionIds.length === 0 || copyingToClipboard}
-                  className="ml-3"
-                >
-                  Copy Selected as JSON ({selectedQuestionIds.length})
-                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={handleCopySelectedQuestionsAsJson}
+                    loading={copyingToClipboard}
+                    disabled={selectedQuestionIds.length === 0 || copyingToClipboard || loadingSavedQuestions}
+                  >
+                    Copy Selected as JSON ({selectedQuestionIds.length})
+                  </Button>
+                  
+                  <Button
+                    onClick={handleDeleteSelectedQuestions}
+                    loading={loadingSavedQuestions}
+                    disabled={selectedQuestionIds.length === 0 || loadingSavedQuestions || copyingToClipboard}
+                    className="flex items-center bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                  >
+                    <TrashIcon className="h-4 w-4 mr-1" />
+                    Delete Selected ({selectedQuestionIds.length})
+                  </Button>
+                </div>
               </div>
             )}
           </div>
